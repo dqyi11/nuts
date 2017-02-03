@@ -4,7 +4,7 @@ Created on Feb 2, 2017
 @author: daqingy
 '''
 
-from hmc import *, LeapFrog
+from hmc import *
 
 def NUTS(x0, delta, M, M_adapt=None, U, K, dU, dK):
     
@@ -33,23 +33,29 @@ def NUTS(x0, delta, M, M_adapt=None, U, K, dU, dK):
         U0 = U(x)
         K0 = K(q)
         
+        neg_x = x
+        pos_x = x 
+        neg_q = q 
+        pos_q = q 
+        j = 0
+        X[:,m+1] = x
+        
         n = 1
         s = 1
         while s == 1:
             v = 2*np.random.random() - 1.
             if v == -1:
-                build_tree()
+                neg_x, neg_q, None, None, new_x, new_n, new_s, alfa, n_alfa = build_tree(neg_x, neg_q, log_u, v, j, Eps[m], X[:,m])
             else:
-                build_tree()
-        U1 = U(x)
-        K1 = K(q)  
+                None, None, pos_x, pos_q, new_x, new_n, new_s, alfa, n_alfa = build_tree(pos_x, pos_q, log_u, v, j, Eps[m], X[:,m])
             
-        alfa = np.min([1.0, np.exp((U0+K0)-(U1+K1))])
-        u = np.random.rand()
-        if u <= alfa:
-            X[:,m+1] = x
-        else:
-            X[:,m+1] = X[:,m]       
+            if new_s == 1:
+                if np.random.rand() < np.min([1.0, new_n/n]):
+                    X[:,m+1] = new_x
+            
+            n += new_n
+            s = new_s * (np.dot(pos_x - neg_x, neg_q) >= 0) * (np.dot(pos_x - neg_x, pos_q) >=0)
+            j += 1
     
         if m <= M_adapt:
             H_b = (1 - 1/(m+t0)) * H_b + (1/(m+t0)) * (delta - alfa)
@@ -58,10 +64,13 @@ def NUTS(x0, delta, M, M_adapt=None, U, K, dU, dK):
         else:
             Eps[m+1] = eps_b 
             
+        return X, Eps
+            
 delta_max = 1000            
             
 def build_tree(x, q, log_u, v, j, eps, theta0, r0, U, K, dU, dK):
-    if j = 0:
+    
+    if j == 0:
         # base case - take one leapfrog step in the direction v
         new_x, new_q = LeapFrog(x, q, v*eps, dU, dK )
         U0 = U(x)
@@ -84,15 +93,15 @@ def build_tree(x, q, log_u, v, j, eps, theta0, r0, U, K, dU, dK):
         neg_x, neg_q, pos_x, pos_q, new_x, new_n, new_s, new_alfa, new_n_alfa = build_tree( x, q, log_u, v, j-1, eps, theta0, r0, U, K, dU, dK )
         if new_s == 1:
             if v == -1:
-                neg_x, neg_q, None, None, new_new_x, new_new_n, new_new_alfa, new_new_n_alfa = build_tree( neg_x, neg_q, log_u, v, j-1, eps, theta0, r0, U, K, dU, dK )    
+                neg_x, neg_q, None, None, new_new_x, new_new_n, new_new_s, new_new_alfa, new_new_n_alfa = build_tree( neg_x, neg_q, log_u, v, j-1, eps, theta0, r0, U, K, dU, dK )    
             else:
-                None, None, pos_x, pos_q, new_new_x, new_new_n, new_new_alfa, new_new_n_alfa = build_tree( pos_x, pos_q, log_u, v, j-1, eps, theta0, r0, U, K, dU, dK )  
+                None, None, pos_x, pos_q, new_new_x, new_new_n, new_new_s, new_new_alfa, new_new_n_alfa = build_tree( pos_x, pos_q, log_u, v, j-1, eps, theta0, r0, U, K, dU, dK )  
            
             if np.random.random() < new_new_n / (new_n + new_new_n):
                 new_x = new_new_x
             
             new_alfa += new_new_alfa
             new_n_alfa += new_new_n_alfa
-            new_s = new_new_s * 
+            new_s = new_new_s * (np.dot( pos_x - neg_x , neg_q ) >= 0 ) * (np.dot(pos_x-neg_x, pos_q) >=0)
             new_n += new_new_n
-        return neg_x, neg_q, pos_x, pos_q, new_pos, new_n, new_s, new_alfa, new_new_alfa
+        return neg_x, neg_q, pos_x, pos_q, new_x, new_n, new_s, new_alfa, new_new_alfa
