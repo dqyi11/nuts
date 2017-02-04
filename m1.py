@@ -42,7 +42,7 @@ if __name__ == '__main__':
     x0 = np.matrix([[0],[6]])
     
     X = HMC(x0, eps, L, sample_num, U_func, K_func, dU_func, dK_func)
-    X = HMC_DA(x0, eps, lam, sample_num, U, K, dU, dK)
+    X = HMC_DA(x0, eps, lam, sample_num, U_func, K_func, dU_func, dK_func)
     
     s_mu = np.mean(X,1)
     s_var = np.cov(X)
