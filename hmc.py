@@ -18,6 +18,7 @@ def HMC(x0, eps, L, M, U, K, dU, dK):
     
     dim = len(x0)
     X = np.zeros((dim, M+1))
+    X = np.matrix(X)
     X[:,0] = x0
     for m in range(M):
         q = np.random.randn(dim,1)
@@ -38,7 +39,7 @@ def HMC(x0, eps, L, M, U, K, dU, dK):
     
     return X
 
-def HMC_DA(x0, delta, lam,  M, M_adapt=None, U, K, dU, dK):
+def HMC_DA(x0, delta, lam,  M, U, K, dU, dK, M_adapt=None):
     
     if M_adapt == None:
         M_adapt = int(M/2)
@@ -46,7 +47,9 @@ def HMC_DA(x0, delta, lam,  M, M_adapt=None, U, K, dU, dK):
     eps0 = FindReasonableEpsilon(x0, dU, dK)
     dim = len(x0)
     X = np.zeros((dim, M+1))
+    X = np.matrix(X)
     Eps = np.zeros(M+1)
+    Eps = np.matrix(Eps)
     X[:,0] = x0
     Eps[0] = eps0
     
