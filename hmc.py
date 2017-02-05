@@ -42,9 +42,9 @@ def HMC_DA(x0, delta, lam,  M, U, dU, M_adapt=None):
         
     eps0 = FindReasonableEpsilon(x0, U, dU)
     dim = len(x0)
-    X = np.zeros((M+1, dim))
+    X = np.zeros((M+M_adapt, dim))
     X[0, :] = x0
-    Eps = np.zeros(M+1)
+    Eps = np.zeros(M+M_adapt)
     Eps[0] = eps0
     
     mu = np.log(10*eps0)
@@ -54,33 +54,34 @@ def HMC_DA(x0, delta, lam,  M, U, dU, M_adapt=None):
     t0 = 10
     k = 0.75
     
-    for m in range(M):
+    for m in range(1,M+M_adapt):
         q = np.random.randn(dim)
-        x = X[m,:]
+        x = X[m-1,:]
         H0 = U(x) - 0.5 *  np.dot(q, q.T)
         
-        L = np.max([1, int( lam / Eps[m] )])
+        L = np.max([1, int( lam / Eps[m-1] )])
         for i in range(L):
-            x, q = LeapFrog(x, q, Eps[m], dU)
+            x, q = LeapFrog(x, q, Eps[m-1], dU)
         H1 = U(x) - 0.5 *  np.dot(q, q.T)
             
         u = np.random.rand()
         if np.log(u) <= np.min([0.0, H1-H0]):
-            X[m+1,:] = x
+            X[m,:] = x
         else:
-            X[m+1,:] = X[m,:]       
+            X[m,:] = X[m-1,:]       
     
         if m <= M_adapt:
             alfa = np.exp(H1-H0)
             eta = 1./float(m+t0)
             H_b = (1 - eta) * H_b + eta * (delta - alfa)
-            Eps[m+1] = np.exp( mu - np.sqrt(m) / gamma * H_b )
-            eta = (m+1)**(-k) # m start from 0
+            Eps[m] = np.exp( mu - np.sqrt(m) / gamma * H_b )
+            eta = m**(-k) 
             eps_b = np.exp( eta * np.log( Eps[m+1] ) + (1. - eta) * np.log( eps_b ) )
-        else:
-            Eps[m+1] = eps_b 
             
-    return X
+        else:
+            Eps[m] = eps_b 
+            
+    return X[M_adapt:,:]
     
 def FindReasonableEpsilon(x, U, dU):
     eps = 1.0

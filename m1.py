@@ -31,12 +31,12 @@ if __name__ == '__main__':
         grad = - np.dot(X, np.linalg.inv(cov))
         return grad
         
-    x0 = np.array([0,6])
+    x0 = np.array([0,0])
     
     X = HMC(x0, eps, L, sample_num, U_func, dU_func)
     
     delta = 0.2
-    lam = 1.0
+    lam = 10.0
     X = HMC_DA(x0, delta, lam, sample_num, U_func, dU_func)
     
     s_mu = np.mean(X,0)
