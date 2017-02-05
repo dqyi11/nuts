@@ -68,32 +68,30 @@ def NUTS(x0, delta, M, M_adapt=None, U, K, dU, dK):
             
 delta_max = 1000            
             
-def build_tree(x, q, log_u, v, j, eps, theta0, r0, U, K, dU, dK):
+def build_tree(x, q, log_u, v, j, eps, theta0, r0, U, dU):
     
     if j == 0:
         # base case - take one leapfrog step in the direction v
-        new_x, new_q = LeapFrog(x, q, v*eps, dU, dK )
-        U0 = U(x)
-        K0 = K(q)
-        U1 = U(new_x)
-        K1 = K(new_q)
-        if log_u <= np.log(U1 + K1):
-            new_n = 1
-        else:
-            new_n = 0
-        if log_u < delta_max + U1 + K1:
-            new_s = 1
-        else:
-            new_s = 0
-        new_alfa = np.min([1, np.exp((U0+K0)-(U1+K1))])
+        H0 = U(x) - 0.5 * np.dot(q, q.T)
+        new_x, new_q = LeapFrog(x, q, v*eps, dU )
+        H1 = U(new_x) - 0.5 * np.dot(new_q, new_q.T)
+        # Is the new point in the slice?
+        new_n = int(log_u <= H1)    
+        # Is the simulation widly inaccurate?
+        new_s = int((log_u - delta_max) < H1)
+        
+        # Compute the acceptance probability
+        new_alfa = np.min([1, np.exp(H1-H0)])
         new_n_alfa = 1.0
         return new_x, new_q, new_x, new_q, new_x, new_n, new_s, new_alfa, new_n_alfa
     else:
         # recursion - implicitly build the left and right subtree
         neg_x, neg_q, pos_x, pos_q, new_x, new_n, new_s, new_alfa, new_n_alfa = build_tree( x, q, log_u, v, j-1, eps, theta0, r0, U, K, dU, dK )
+        
+        # no need to keep going if the stopping criteria were met in the first subtree
         if new_s == 1:
             if v == -1:
-                neg_x, neg_q, None, None, new_new_x, new_new_n, new_new_s, new_new_alfa, new_new_n_alfa = build_tree( neg_x, neg_q, log_u, v, j-1, eps, theta0, r0, U, K, dU, dK )    
+                neg_x, neg_q, _, _, new_new_x, new_new_n, new_new_s, new_new_alfa, new_new_n_alfa = build_tree( neg_x, neg_q, log_u, v, j-1, eps, theta0, r0, U, K, dU, dK )    
             else:
                 None, None, pos_x, pos_q, new_new_x, new_new_n, new_new_s, new_new_alfa, new_new_n_alfa = build_tree( pos_x, pos_q, log_u, v, j-1, eps, theta0, r0, U, K, dU, dK )  
            
