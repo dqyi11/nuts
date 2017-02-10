@@ -305,6 +305,7 @@ def nuts6(f, M, Madapt, theta0, delta=0.6):
     return samples, lnprob, epsilon
 
 
+
 def test_nuts6():
     """ Example usage of nuts6: sampling a 2d highly correlated Gaussian distribution """
 
@@ -325,20 +326,24 @@ def test_nuts6():
         return logp, grad
 
     D = 2
-    M = 5000
-    Madapt = 5000
-    theta0 = np.random.normal(0, 1, D)
+    M = 500
+    Madapt = 50
+    #theta0 = np.random.normal(0, 1, D)
     delta = 0.2
 
     mean = np.zeros(2)
     cov = np.asarray([[1, 1.98],
                       [1.98, 4]])
 
+    samples = np.empty((M, D), dtype=float)
     print('Running HMC with dual averaging and trajectory length %0.2f...' % delta)
-    samples, lnprob, epsilon = nuts6(correlated_normal, M, Madapt, theta0, delta)
+    for m in range(M):
+        print m
+        theta0 = np.random.normal(0, 1, D)
+        X, lnprob, epsilon = nuts6(correlated_normal, 1, Madapt, theta0, delta)
+        samples[m,:] = X[0]
     print('Done. Final epsilon = %f.' % epsilon)
 
-    samples = samples[1::10, :]
     print('Percentiles')
     print (np.percentile(samples, [16, 50, 84], axis=0))
     print('Mean')
@@ -350,7 +355,101 @@ def test_nuts6():
     temp = np.random.multivariate_normal(mean, cov, size=500)
     plt.plot(temp[:, 0], temp[:, 1], '.')
     plt.plot(samples[:, 0], samples[:, 1], 'r+')
+    plt.legend(['Reference', 'NUTS'], loc=4)
     plt.show()
 
+from scipy.stats import norm
+
+class NormalRandomVariable(object):    
+    
+    def __init__(self, dim, mu, var):
+        self.dim = dim
+        self.RVS = []
+        for i in range(self.dim):
+            X = norm( loc=mu[i], scale=var[i] )
+            self.RVS.append(X)    
+        
+    def sample(self, N):
+        ins = np.zeros((N,self.dim))
+        for i in range(self.dim):
+            ins[:,i] = self.RVS[i].rvs(N)
+        return ins
+           
+    def logpdf(self, x):
+        lp = 0.0
+        for i in range(self.dim):
+            lp += self.RVS[i].logpdf(x[i])
+        return lp    
+    
+    def pdf(self, x):
+        return np.exp(self.logpdf(x))   
+
+    def gradpdf(self, x):
+        grad =  np.zeros(self.dim)
+        return grad
+
+def test_nuts():
+    
+    
+    def circle_func(sample):    
+        out = np.zeros(1)
+        out[0] = sample[0]**2 + sample[1]**2 - 1
+                
+        grad = np.zeros(2)
+        grad[0] = 2 * sample[0]
+        grad[1] = 2 * sample[1]
+        return out, grad
+    
+    tau_t = 1000
+    RV_X = NormalRandomVariable(2, [0.,1.], [.5,.5])  
+        
+    mu = np.asarray([0., 1.])
+    cov = np.asarray([[.5, .0], [.0, .5]])    
+    A = np.linalg.inv(cov)    
+    def log_circle_func(sample):
+        circle_term, circle_grad = circle_func(sample)
+        term = np.sum( norm.logcdf(- circle_term * tau_t) ) + RV_X.logpdf(sample)
+        grad = - 2 * np.dot(A, (sample-mu).T) - tau_t * circle_grad
+        return term, grad
+    
+    D = 2
+    M = 500
+    Madapt = 1000
+    theta0 = np.random.normal(0, 1, D)
+    delta = 0.2
+
+    mean = np.zeros(2)
+    cov = np.asarray([[1, 1.98],
+                      [1.98, 4]])
+
+    samples = np.empty((M, D), dtype=float)
+    print('Running HMC with dual averaging and trajectory length %0.2f...' % delta)
+    for m in range(M):
+        print m
+        theta0 = np.random.normal(0, 2, D)
+        X, lnprob, epsilon = nuts6(log_circle_func, 1, Madapt, theta0, delta)
+        samples[m,:] = X[0]
+    print('Done. Final epsilon = %f.' % epsilon)
+
+    print('Percentiles')
+    print (np.percentile(samples, [16, 50, 84], axis=0))
+    print('Mean')
+    print (np.mean(samples, axis=0))
+    print('Stddev')
+    print (np.std(samples, axis=0))
+
+    import pylab as plt
+    #temp = np.random.multivariate_normal(mean, cov, size=500)
+    #plt.plot(temp[:, 0], temp[:, 1], '.')
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    c1 = plt.Circle((0,0),1,color='b', fill=False)
+    ax.plot(samples[:, 0], samples[:, 1], 'r+')
+    ax.add_artist(c1)
+    #plt.legend(['Reference', 'NUTS'], loc=4)
+    plt.show()
+
+
 if __name__ == '__main__':
-    test_nuts6()
+    #test_nuts6()
+    test_nuts()
